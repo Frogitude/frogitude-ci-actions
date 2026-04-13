@@ -1,0 +1,102 @@
+# ────────────────────────────────────────────────────────────────────────────
+#  🐸 FrogitudeCI — Unity Test Runner
+#
+#  Runs Unity Edit-mode and/or Play-mode tests inside Docker (unityci/editor).
+#  Outputs NUnit XML results and test count summaries.
+# ────────────────────────────────────────────────────────────────────────────
+name: 'FrogitudeCI — Unity Test'
+description: 'Run Unity Editor tests (EditMode/PlayMode) via Docker and output NUnit XML results'
+branding:
+  icon: 'check-circle'
+  color: 'green'
+
+inputs:
+  unity-version:
+    description: 'Unity Editor version (e.g. 2022.3.20f1)'
+    required: true
+  project-path:
+    description: 'Path to Unity project root (default: repository root)'
+    required: false
+    default: '.'
+  test-mode:
+    description: 'Test mode: all, editmode, or playmode'
+    required: false
+    default: 'all'
+  artifacts-path:
+    description: 'Directory to store test result XML files'
+    required: false
+    default: 'test-results'
+  coverage:
+    description: 'Enable code coverage collection'
+    required: false
+    default: 'false'
+  license:
+    description: 'Unity Personal license (.ulf content). Mutually exclusive with serial.'
+    required: false
+    default: ''
+  serial:
+    description: 'Unity Pro/Plus serial number'
+    required: false
+    default: ''
+  email:
+    description: 'Unity account email (required for serial activation)'
+    required: false
+    default: ''
+  password:
+    description: 'Unity account password (required for serial activation)'
+    required: false
+    default: ''
+  docker-image:
+    description: 'Override Docker image (default: unityci/editor:VERSION-base-3)'
+    required: false
+    default: ''
+  github-token:
+    description: 'GitHub token for PR status checks (optional)'
+    required: false
+    default: ''
+
+outputs:
+  results-path:
+    description: 'Path to test results directory'
+    value: ${{ steps.tests.outputs.results-path }}
+  total:
+    description: 'Total number of tests'
+    value: ${{ steps.tests.outputs.total }}
+  passed:
+    description: 'Number of passed tests'
+    value: ${{ steps.tests.outputs.passed }}
+  failed:
+    description: 'Number of failed tests'
+    value: ${{ steps.tests.outputs.failed }}
+  skipped:
+    description: 'Number of skipped tests'
+    value: ${{ steps.tests.outputs.skipped }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Activate Unity license
+      uses: ./unity-activate
+      id: license
+      with:
+        unity-version: ${{ inputs.unity-version }}
+        license: ${{ inputs.license }}
+        serial: ${{ inputs.serial }}
+        email: ${{ inputs.email }}
+        password: ${{ inputs.password }}
+        docker-image: ${{ inputs.docker-image }}
+
+    - name: Run Unity tests
+      id: tests
+      shell: bash
+      env:
+        UNITY_VERSION: ${{ inputs.unity-version }}
+        PROJECT_PATH: ${{ inputs.project-path }}
+        TEST_MODE: ${{ inputs.test-mode }}
+        ARTIFACTS_PATH: ${{ inputs.artifacts-path }}
+        COVERAGE: ${{ inputs.coverage }}
+        DOCKER_IMAGE_OVERRIDE: ${{ inputs.docker-image }}
+        LICENSE_VOLUME: ${{ steps.license.outputs.volume-name }}
+      run: |
+        chmod +x "${{ github.action_path }}/run-tests.sh"
+        "${{ github.action_path }}/run-tests.sh"

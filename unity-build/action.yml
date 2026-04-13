@@ -1,0 +1,118 @@
+# ────────────────────────────────────────────────────────────────────────────
+#  🐸 FrogitudeCI — Unity Builder
+#
+#  Builds a Unity project for a target platform inside Docker (unityci/editor).
+#  Automatically selects the correct Docker image tag for each platform.
+# ────────────────────────────────────────────────────────────────────────────
+name: 'FrogitudeCI — Unity Build'
+description: 'Build a Unity project for any target platform via Docker'
+branding:
+  icon: 'package'
+  color: 'green'
+
+inputs:
+  unity-version:
+    description: 'Unity Editor version (e.g. 2022.3.20f1)'
+    required: true
+  target-platform:
+    description: 'Build target: StandaloneWindows64, StandaloneOSX, StandaloneLinux64, Android, iOS, WebGL, LinuxHeadlessSimulation'
+    required: true
+  project-path:
+    description: 'Path to Unity project root'
+    required: false
+    default: '.'
+  build-name:
+    description: 'Name of the build output'
+    required: false
+    default: ''
+  build-path:
+    description: 'Output directory for built artifacts'
+    required: false
+    default: 'build'
+  build-method:
+    description: 'Custom C# build method (e.g. MyNamespace.Builder.Build)'
+    required: false
+    default: ''
+  il2cpp:
+    description: 'Force IL2CPP scripting backend (true/false)'
+    required: false
+    default: 'false'
+  android-keystore-base64:
+    description: 'Base64-encoded Android keystore file'
+    required: false
+    default: ''
+  android-keystore-pass:
+    description: 'Android keystore password'
+    required: false
+    default: ''
+  android-keyalias-name:
+    description: 'Android key alias name'
+    required: false
+    default: ''
+  android-keyalias-pass:
+    description: 'Android key alias password'
+    required: false
+    default: ''
+  license:
+    description: 'Unity Personal license (.ulf content)'
+    required: false
+    default: ''
+  serial:
+    description: 'Unity Pro/Plus serial number'
+    required: false
+    default: ''
+  email:
+    description: 'Unity account email'
+    required: false
+    default: ''
+  password:
+    description: 'Unity account password'
+    required: false
+    default: ''
+  docker-image:
+    description: 'Override Docker image (default: auto-selected by platform)'
+    required: false
+    default: ''
+
+outputs:
+  build-path:
+    description: 'Path to build output directory'
+    value: ${{ steps.build.outputs.build-path }}
+  build-size:
+    description: 'Total size of build artifacts'
+    value: ${{ steps.build.outputs.build-size }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Activate Unity license
+      uses: ./unity-activate
+      id: license
+      with:
+        unity-version: ${{ inputs.unity-version }}
+        license: ${{ inputs.license }}
+        serial: ${{ inputs.serial }}
+        email: ${{ inputs.email }}
+        password: ${{ inputs.password }}
+        docker-image: ${{ inputs.docker-image }}
+
+    - name: Build Unity project
+      id: build
+      shell: bash
+      env:
+        UNITY_VERSION: ${{ inputs.unity-version }}
+        TARGET_PLATFORM: ${{ inputs.target-platform }}
+        PROJECT_PATH: ${{ inputs.project-path }}
+        BUILD_NAME: ${{ inputs.build-name }}
+        BUILD_PATH: ${{ inputs.build-path }}
+        BUILD_METHOD: ${{ inputs.build-method }}
+        IL2CPP: ${{ inputs.il2cpp }}
+        ANDROID_KEYSTORE_BASE64: ${{ inputs.android-keystore-base64 }}
+        ANDROID_KEYSTORE_PASS: ${{ inputs.android-keystore-pass }}
+        ANDROID_KEYALIAS_NAME: ${{ inputs.android-keyalias-name }}
+        ANDROID_KEYALIAS_PASS: ${{ inputs.android-keyalias-pass }}
+        DOCKER_IMAGE_OVERRIDE: ${{ inputs.docker-image }}
+        LICENSE_VOLUME: ${{ steps.license.outputs.volume-name }}
+      run: |
+        chmod +x "${{ github.action_path }}/build.sh"
+        "${{ github.action_path }}/build.sh"

@@ -1,0 +1,72 @@
+# ────────────────────────────────────────────────────────────────────────────
+#  🐸 FrogitudeCI — Unity License Activation
+#
+#  Activates a Unity license inside a Docker container (unityci/editor).
+#  Supports Personal (.ulf file) and Professional (serial number) licenses.
+#  Creates a shared Docker volume so subsequent build/test steps reuse it.
+# ────────────────────────────────────────────────────────────────────────────
+name: 'FrogitudeCI — Unity Activate'
+description: 'Activate a Unity Editor license (Personal .ulf or Pro serial) via Docker'
+branding:
+  icon: 'unlock'
+  color: 'green'
+
+inputs:
+  unity-version:
+    description: 'Unity Editor version (e.g. 2022.3.20f1)'
+    required: true
+  license:
+    description: 'Unity Personal license file content (.ulf XML). Mutually exclusive with serial.'
+    required: false
+    default: ''
+  serial:
+    description: 'Unity Pro/Plus serial number. Requires email + password.'
+    required: false
+    default: ''
+  email:
+    description: 'Unity account email (required for serial activation)'
+    required: false
+    default: ''
+  password:
+    description: 'Unity account password (required for serial activation)'
+    required: false
+    default: ''
+  docker-image:
+    description: 'Override Docker image (default: unityci/editor:VERSION-base-3)'
+    required: false
+    default: ''
+
+outputs:
+  volume-name:
+    description: 'Docker volume name containing the activated license'
+    value: ${{ steps.activate.outputs.volume-name }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Activate Unity license
+      id: activate
+      shell: bash
+      env:
+        UNITY_VERSION: ${{ inputs.unity-version }}
+        UNITY_LICENSE: ${{ inputs.license }}
+        UNITY_SERIAL: ${{ inputs.serial }}
+        UNITY_EMAIL: ${{ inputs.email }}
+        UNITY_PASSWORD: ${{ inputs.password }}
+        DOCKER_IMAGE_OVERRIDE: ${{ inputs.docker-image }}
+        GITHUB_RUN_ID: ${{ github.run_id }}
+      run: |
+        chmod +x "${{ github.action_path }}/activate.sh"
+        "${{ github.action_path }}/activate.sh"
+
+    - name: Register cleanup
+      if: always()
+      shell: bash
+      env:
+        GITHUB_RUN_ID: ${{ github.run_id }}
+      run: |
+        VOLUME="unity-license-${GITHUB_RUN_ID}"
+        echo "🐸 Will clean up Docker volume ${VOLUME} on job completion"
+        # GitHub Actions post-job cleanup via trap isn't reliable,
+        # but volume auto-prunes on runner reset for hosted runners.
+        # For self-hosted, add: docker volume rm ${VOLUME} || true

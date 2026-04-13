@@ -1,0 +1,76 @@
+# ────────────────────────────────────────────────────────────────────────────
+#  🐸 FrogitudeCI — Steam Deploy
+#
+#  Uploads build artifacts to Steamworks via steamcmd CLI.
+#  Uses STEAM_CONFIG_VDF (base64) for authentication (no interactive login).
+#  Supports up to 5 depots for multi-platform uploads.
+# ────────────────────────────────────────────────────────────────────────────
+name: 'FrogitudeCI — Steam Deploy'
+description: 'Deploy game builds to Steam via steamcmd with config VDF authentication'
+branding:
+  icon: 'upload-cloud'
+  color: 'blue'
+
+inputs:
+  username:
+    description: 'Steam username for steamcmd login'
+    required: true
+  config-vdf:
+    description: 'Base64-encoded Steam config.vdf (MFA session token)'
+    required: true
+  app-id:
+    description: 'Steam Application ID'
+    required: true
+  build-description:
+    description: 'Build description shown in Steamworks'
+    required: false
+    default: ''
+  release-branch:
+    description: 'Steam release branch (e.g. prerelease, beta, default)'
+    required: false
+    default: 'prerelease'
+  root-path:
+    description: 'Root path containing build artifacts'
+    required: false
+    default: 'build'
+  depot-1-path:
+    description: 'Depot 1 content path (relative to root-path)'
+    required: false
+    default: ''
+  depot-2-path:
+    description: 'Depot 2 content path'
+    required: false
+    default: ''
+  depot-3-path:
+    description: 'Depot 3 content path'
+    required: false
+    default: ''
+  depot-4-path:
+    description: 'Depot 4 content path'
+    required: false
+    default: ''
+  depot-5-path:
+    description: 'Depot 5 content path'
+    required: false
+    default: ''
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Deploy to Steam
+      shell: bash
+      env:
+        STEAM_USERNAME: ${{ inputs.username }}
+        STEAM_CONFIG_VDF: ${{ inputs.config-vdf }}
+        STEAM_APP_ID: ${{ inputs.app-id }}
+        BUILD_DESCRIPTION: ${{ inputs.build-description }}
+        RELEASE_BRANCH: ${{ inputs.release-branch }}
+        ROOT_PATH: ${{ inputs.root-path }}
+        DEPOT_1_PATH: ${{ inputs.depot-1-path }}
+        DEPOT_2_PATH: ${{ inputs.depot-2-path }}
+        DEPOT_3_PATH: ${{ inputs.depot-3-path }}
+        DEPOT_4_PATH: ${{ inputs.depot-4-path }}
+        DEPOT_5_PATH: ${{ inputs.depot-5-path }}
+      run: |
+        chmod +x "${{ github.action_path }}/deploy.sh"
+        "${{ github.action_path }}/deploy.sh"
