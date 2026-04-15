@@ -1,5 +1,5 @@
 # ────────────────────────────────────────────────────────────────────────────
-#  🐸 FrogitudeCI — Steam Deploy
+#  🐸 FrogitudeCI — Steam Deploy  (v1)
 #
 #  Uploads build artifacts to Steamworks via steamcmd CLI.
 #  Uses STEAM_CONFIG_VDF (base64) for authentication (no interactive login).

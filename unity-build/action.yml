@@ -1,8 +1,9 @@
 # ────────────────────────────────────────────────────────────────────────────
-#  🐸 FrogitudeCI — Unity Builder
+#  🐸 FrogitudeCI — Unity Builder  (v1)
 #
 #  Builds a Unity project for a target platform inside Docker (unityci/editor).
 #  Automatically selects the correct Docker image tag for each platform.
+#  Compatible with Unity 5.x → Unity 6+, including Build Profiles.
 # ────────────────────────────────────────────────────────────────────────────
 name: 'FrogitudeCI — Unity Build'
 description: 'Build a Unity project for any target platform via Docker'
@@ -12,10 +13,10 @@ branding:
 
 inputs:
   unity-version:
-    description: 'Unity Editor version (e.g. 2022.3.20f1)'
+    description: 'Unity Editor version (e.g. 2022.3.20f1, 6000.0.23f1). Use "auto" to detect from ProjectVersion.txt.'
     required: true
   target-platform:
-    description: 'Build target: StandaloneWindows64, StandaloneOSX, StandaloneLinux64, Android, iOS, WebGL, LinuxHeadlessSimulation'
+    description: 'Build target: StandaloneWindows64, StandaloneWindows, StandaloneOSX, StandaloneLinux64, Android, iOS, WebGL, LinuxHeadlessSimulation, tvOS, WSAPlayer'
     required: true
   project-path:
     description: 'Path to Unity project root'
@@ -33,10 +34,39 @@ inputs:
     description: 'Custom C# build method (e.g. MyNamespace.Builder.Build)'
     required: false
     default: ''
+  build-profile:
+    description: 'Path to a Build Profile asset relative to project root (Unity 6+ feature, e.g. Assets/Settings/Build Profiles/Windows.asset)'
+    required: false
+    default: ''
+  custom-parameters:
+    description: 'Additional CLI parameters passed to Unity (e.g. -standaloneBuildSubtarget Server)'
+    required: false
+    default: ''
+  versioning:
+    description: 'Versioning strategy: Semantic (default), Tag, Custom, None'
+    required: false
+    default: ''
+  version:
+    description: 'Version string when using Custom versioning strategy'
+    required: false
+    default: ''
   il2cpp:
     description: 'Force IL2CPP scripting backend (true/false)'
     required: false
     default: 'false'
+  enable-gpu:
+    description: 'Launch Unity without -nographics (useful for GPU-enabled runners)'
+    required: false
+    default: 'false'
+  allow-dirty-build:
+    description: 'Allow building from a dirty working tree'
+    required: false
+    default: 'false'
+  # ── Android-specific ──
+  android-export-type:
+    description: 'Android export: androidPackage (apk), androidAppBundle (aab), or androidStudioProject'
+    required: false
+    default: 'androidPackage'
   android-keystore-base64:
     description: 'Base64-encoded Android keystore file'
     required: false
@@ -53,6 +83,15 @@ inputs:
     description: 'Android key alias password'
     required: false
     default: ''
+  android-target-sdk-version:
+    description: 'Android target API level (e.g. AndroidApiLevel31)'
+    required: false
+    default: ''
+  android-symbol-type:
+    description: 'Android symbol export: none, public, or debugging'
+    required: false
+    default: 'none'
+  # ── License ──
   license:
     description: 'Unity Personal license (.ulf content)'
     required: false
@@ -69,10 +108,44 @@ inputs:
     description: 'Unity account password'
     required: false
     default: ''
+  licensing-server:
+    description: 'Unity License Server URL for floating licenses'
+    required: false
+    default: ''
+  # ── Docker / Registry ──
   docker-image:
     description: 'Override Docker image (default: auto-selected by platform)'
     required: false
     default: ''
+  container-registry:
+    description: 'Container registry/repository (default: unityci/editor)'
+    required: false
+    default: 'unityci/editor'
+  container-registry-version:
+    description: 'Container image version tag (default: 3)'
+    required: false
+    default: '3'
+  docker-cpu-limit:
+    description: 'CPU cores for Docker container (e.g. 2, 0.5)'
+    required: false
+    default: ''
+  docker-memory-limit:
+    description: 'Memory limit for Docker container (e.g. 4g, 512m)'
+    required: false
+    default: ''
+  # ── Private repos ──
+  ssh-agent:
+    description: 'SSH Agent socket path to forward for private package dependencies'
+    required: false
+    default: ''
+  git-private-token:
+    description: 'GitHub PAT for private package repos'
+    required: false
+    default: ''
+  run-as-host-user:
+    description: 'Run container as host user (useful for self-hosted runners)'
+    required: false
+    default: 'false'
 
 outputs:
   build-path:
@@ -81,6 +154,12 @@ outputs:
   build-size:
     description: 'Total size of build artifacts'
     value: ${{ steps.build.outputs.build-size }}
+  build-version:
+    description: 'Generated version string'
+    value: ${{ steps.build.outputs.build-version }}
+  engine-exit-code:
+    description: 'Unity Editor exit code (0 = success)'
+    value: ${{ steps.build.outputs.engine-exit-code }}
 
 runs:
   using: 'composite'
@@ -94,7 +173,10 @@ runs:
         serial: ${{ inputs.serial }}
         email: ${{ inputs.email }}
         password: ${{ inputs.password }}
+        licensing-server: ${{ inputs.licensing-server }}
         docker-image: ${{ inputs.docker-image }}
+        container-registry: ${{ inputs.container-registry }}
+        container-registry-version: ${{ inputs.container-registry-version }}
 
     - name: Build Unity project
       id: build
@@ -106,13 +188,30 @@ runs:
         BUILD_NAME: ${{ inputs.build-name }}
         BUILD_PATH: ${{ inputs.build-path }}
         BUILD_METHOD: ${{ inputs.build-method }}
+        BUILD_PROFILE: ${{ inputs.build-profile }}
+        CUSTOM_PARAMETERS: ${{ inputs.custom-parameters }}
+        VERSIONING: ${{ inputs.versioning }}
+        VERSION: ${{ inputs.version }}
         IL2CPP: ${{ inputs.il2cpp }}
+        ENABLE_GPU: ${{ inputs.enable-gpu }}
+        ALLOW_DIRTY_BUILD: ${{ inputs.allow-dirty-build }}
+        ANDROID_EXPORT_TYPE: ${{ inputs.android-export-type }}
         ANDROID_KEYSTORE_BASE64: ${{ inputs.android-keystore-base64 }}
         ANDROID_KEYSTORE_PASS: ${{ inputs.android-keystore-pass }}
         ANDROID_KEYALIAS_NAME: ${{ inputs.android-keyalias-name }}
         ANDROID_KEYALIAS_PASS: ${{ inputs.android-keyalias-pass }}
+        ANDROID_TARGET_SDK_VERSION: ${{ inputs.android-target-sdk-version }}
+        ANDROID_SYMBOL_TYPE: ${{ inputs.android-symbol-type }}
         DOCKER_IMAGE_OVERRIDE: ${{ inputs.docker-image }}
+        CONTAINER_REGISTRY: ${{ inputs.container-registry }}
+        CONTAINER_REGISTRY_VERSION: ${{ inputs.container-registry-version }}
+        DOCKER_CPU_LIMIT: ${{ inputs.docker-cpu-limit }}
+        DOCKER_MEMORY_LIMIT: ${{ inputs.docker-memory-limit }}
+        SSH_AGENT: ${{ inputs.ssh-agent }}
+        GIT_PRIVATE_TOKEN: ${{ inputs.git-private-token }}
+        RUN_AS_HOST_USER: ${{ inputs.run-as-host-user }}
         LICENSE_VOLUME: ${{ steps.license.outputs.volume-name }}
+        UNITY_LICENSING_SERVER: ${{ inputs.licensing-server }}
       run: |
         chmod +x "${{ github.action_path }}/build.sh"
         "${{ github.action_path }}/build.sh"

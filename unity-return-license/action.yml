@@ -1,0 +1,46 @@
+# ────────────────────────────────────────────────────────────────────────────
+#  🐸 FrogitudeCI — Unity Return License  (v1)
+#
+#  Returns a Unity Pro/Plus serial license to free the seat allocation.
+#  Run this as a post-step or in a `always()` job after build/test.
+#  Personal (.ulf) and License Server licenses do NOT need returning.
+# ────────────────────────────────────────────────────────────────────────────
+name: 'FrogitudeCI — Unity Return License'
+description: 'Return a Unity Pro/Plus serial license to free the activation seat'
+branding:
+  icon: 'log-out'
+  color: 'orange'
+
+inputs:
+  unity-version:
+    description: 'Unity Editor version (e.g. 2022.3.20f1, 6000.0.23f1)'
+    required: true
+  license-volume:
+    description: 'Docker volume name containing the activated license'
+    required: true
+  serial:
+    description: 'Unity Pro/Plus serial key (same one used for activation)'
+    required: true
+  container-registry:
+    description: 'Docker image registry (default: unityci/editor)'
+    required: false
+    default: 'unityci/editor'
+  container-registry-version:
+    description: 'Docker image tag version (default: 3)'
+    required: false
+    default: '3'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Return Unity license
+      shell: bash
+      env:
+        UNITY_VERSION: ${{ inputs.unity-version }}
+        LICENSE_VOLUME: ${{ inputs.license-volume }}
+        UNITY_SERIAL: ${{ inputs.serial }}
+        CONTAINER_REGISTRY: ${{ inputs.container-registry }}
+        CONTAINER_REGISTRY_VERSION: ${{ inputs.container-registry-version }}
+      run: |
+        chmod +x "${{ github.action_path }}/return-license.sh"
+        "${{ github.action_path }}/return-license.sh"

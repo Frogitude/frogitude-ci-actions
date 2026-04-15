@@ -1,22 +1,24 @@
 # ────────────────────────────────────────────────────────────────────────────
-#  🐸 FrogitudeCI — Unity License Activation
+#  🐸 FrogitudeCI — Unity License Activation  (v1)
 #
 #  Activates a Unity license inside a Docker container (unityci/editor).
-#  Supports Personal (.ulf file) and Professional (serial number) licenses.
+#  Supports Personal (.ulf file), Professional (serial), and License Server.
 #  Creates a shared Docker volume so subsequent build/test steps reuse it.
+#
+#  Compatible with Unity 5.x → Unity 6+.
 # ────────────────────────────────────────────────────────────────────────────
 name: 'FrogitudeCI — Unity Activate'
-description: 'Activate a Unity Editor license (Personal .ulf or Pro serial) via Docker'
+description: 'Activate a Unity Editor license (Personal .ulf, Pro serial, or License Server) via Docker'
 branding:
   icon: 'unlock'
   color: 'green'
 
 inputs:
   unity-version:
-    description: 'Unity Editor version (e.g. 2022.3.20f1)'
+    description: 'Unity Editor version (e.g. 2022.3.20f1, 6000.0.23f1)'
     required: true
   license:
-    description: 'Unity Personal license file content (.ulf XML). Mutually exclusive with serial.'
+    description: 'Unity Personal license file content (.ulf XML). Mutually exclusive with serial and licensing-server.'
     required: false
     default: ''
   serial:
@@ -31,10 +33,22 @@ inputs:
     description: 'Unity account password (required for serial activation)'
     required: false
     default: ''
-  docker-image:
-    description: 'Override Docker image (default: unityci/editor:VERSION-base-3)'
+  licensing-server:
+    description: 'URL to a Unity License Server for floating licenses (e.g. https://license-server.example.com)'
     required: false
     default: ''
+  docker-image:
+    description: 'Override Docker image (default: auto-selected)'
+    required: false
+    default: ''
+  container-registry:
+    description: 'Container registry/repository to pull from (default: unityci/editor)'
+    required: false
+    default: 'unityci/editor'
+  container-registry-version:
+    description: 'Container registry image version tag (default: 3)'
+    required: false
+    default: '3'
 
 outputs:
   volume-name:
@@ -53,7 +67,10 @@ runs:
         UNITY_SERIAL: ${{ inputs.serial }}
         UNITY_EMAIL: ${{ inputs.email }}
         UNITY_PASSWORD: ${{ inputs.password }}
+        UNITY_LICENSING_SERVER: ${{ inputs.licensing-server }}
         DOCKER_IMAGE_OVERRIDE: ${{ inputs.docker-image }}
+        CONTAINER_REGISTRY: ${{ inputs.container-registry }}
+        CONTAINER_REGISTRY_VERSION: ${{ inputs.container-registry-version }}
         GITHUB_RUN_ID: ${{ github.run_id }}
       run: |
         chmod +x "${{ github.action_path }}/activate.sh"

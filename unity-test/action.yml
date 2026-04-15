@@ -1,25 +1,26 @@
 # ────────────────────────────────────────────────────────────────────────────
-#  🐸 FrogitudeCI — Unity Test Runner
+#  🐸 FrogitudeCI — Unity Test Runner  (v1)
 #
-#  Runs Unity Edit-mode and/or Play-mode tests inside Docker (unityci/editor).
-#  Outputs NUnit XML results and test count summaries.
+#  Runs Unity Edit-mode, Play-mode, and/or Standalone tests inside Docker.
+#  Outputs NUnit XML results, code coverage, and test count summaries.
+#  Compatible with Unity 5.x → Unity 6+.
 # ────────────────────────────────────────────────────────────────────────────
 name: 'FrogitudeCI — Unity Test'
-description: 'Run Unity Editor tests (EditMode/PlayMode) via Docker and output NUnit XML results'
+description: 'Run Unity Editor tests (EditMode/PlayMode/Standalone) via Docker and output NUnit XML results'
 branding:
   icon: 'check-circle'
   color: 'green'
 
 inputs:
   unity-version:
-    description: 'Unity Editor version (e.g. 2022.3.20f1)'
+    description: 'Unity Editor version (e.g. 2022.3.20f1, 6000.0.23f1). Use "auto" to detect from ProjectVersion.txt.'
     required: true
   project-path:
     description: 'Path to Unity project root (default: repository root)'
     required: false
     default: '.'
   test-mode:
-    description: 'Test mode: all, editmode, or playmode'
+    description: 'Test mode: all (EditMode+PlayMode), editmode, playmode, or standalone'
     required: false
     default: 'all'
   artifacts-path:
@@ -30,6 +31,23 @@ inputs:
     description: 'Enable code coverage collection'
     required: false
     default: 'false'
+  coverage-options:
+    description: 'Code coverage options (default: generateAdditionalMetrics;generateHtmlReport;generateBadgeReport)'
+    required: false
+    default: 'generateAdditionalMetrics;generateHtmlReport;generateBadgeReport'
+  custom-parameters:
+    description: 'Additional CLI parameters for the test runner'
+    required: false
+    default: ''
+  package-mode:
+    description: 'Set to true when testing a Unity Package instead of a Project'
+    required: false
+    default: 'false'
+  use-host-network:
+    description: 'Use host network for Docker container (useful for local server tests)'
+    required: false
+    default: 'false'
+  # ── License ──
   license:
     description: 'Unity Personal license (.ulf content). Mutually exclusive with serial.'
     required: false
@@ -46,19 +64,61 @@ inputs:
     description: 'Unity account password (required for serial activation)'
     required: false
     default: ''
-  docker-image:
-    description: 'Override Docker image (default: unityci/editor:VERSION-base-3)'
+  licensing-server:
+    description: 'Unity License Server URL for floating licenses'
     required: false
     default: ''
+  # ── Docker / Registry ──
+  docker-image:
+    description: 'Override Docker image (default: auto-selected)'
+    required: false
+    default: ''
+  container-registry:
+    description: 'Container registry/repository (default: unityci/editor)'
+    required: false
+    default: 'unityci/editor'
+  container-registry-version:
+    description: 'Container image version tag (default: 3)'
+    required: false
+    default: '3'
+  docker-cpu-limit:
+    description: 'CPU cores for Docker container'
+    required: false
+    default: ''
+  docker-memory-limit:
+    description: 'Memory limit for Docker container (e.g. 4g, 512m)'
+    required: false
+    default: ''
+  # ── Private repos ──
+  ssh-agent:
+    description: 'SSH Agent socket path for private package dependencies'
+    required: false
+    default: ''
+  git-private-token:
+    description: 'GitHub PAT for private package repos'
+    required: false
+    default: ''
+  run-as-host-user:
+    description: 'Run container as host user (useful for self-hosted runners)'
+    required: false
+    default: 'false'
+  # ── GitHub integration ──
   github-token:
     description: 'GitHub token for PR status checks (optional)'
     required: false
     default: ''
+  check-name:
+    description: 'Name for the GitHub Check Run (default: Test Results)'
+    required: false
+    default: 'Test Results'
 
 outputs:
   results-path:
     description: 'Path to test results directory'
     value: ${{ steps.tests.outputs.results-path }}
+  coverage-path:
+    description: 'Path to code coverage results'
+    value: ${{ steps.tests.outputs.coverage-path }}
   total:
     description: 'Total number of tests'
     value: ${{ steps.tests.outputs.total }}
@@ -84,7 +144,10 @@ runs:
         serial: ${{ inputs.serial }}
         email: ${{ inputs.email }}
         password: ${{ inputs.password }}
+        licensing-server: ${{ inputs.licensing-server }}
         docker-image: ${{ inputs.docker-image }}
+        container-registry: ${{ inputs.container-registry }}
+        container-registry-version: ${{ inputs.container-registry-version }}
 
     - name: Run Unity tests
       id: tests
@@ -95,8 +158,20 @@ runs:
         TEST_MODE: ${{ inputs.test-mode }}
         ARTIFACTS_PATH: ${{ inputs.artifacts-path }}
         COVERAGE: ${{ inputs.coverage }}
+        COVERAGE_OPTIONS: ${{ inputs.coverage-options }}
+        CUSTOM_PARAMETERS: ${{ inputs.custom-parameters }}
+        PACKAGE_MODE: ${{ inputs.package-mode }}
+        USE_HOST_NETWORK: ${{ inputs.use-host-network }}
         DOCKER_IMAGE_OVERRIDE: ${{ inputs.docker-image }}
+        CONTAINER_REGISTRY: ${{ inputs.container-registry }}
+        CONTAINER_REGISTRY_VERSION: ${{ inputs.container-registry-version }}
+        DOCKER_CPU_LIMIT: ${{ inputs.docker-cpu-limit }}
+        DOCKER_MEMORY_LIMIT: ${{ inputs.docker-memory-limit }}
+        SSH_AGENT: ${{ inputs.ssh-agent }}
+        GIT_PRIVATE_TOKEN: ${{ inputs.git-private-token }}
+        RUN_AS_HOST_USER: ${{ inputs.run-as-host-user }}
         LICENSE_VOLUME: ${{ steps.license.outputs.volume-name }}
+        UNITY_LICENSING_SERVER: ${{ inputs.licensing-server }}
       run: |
         chmod +x "${{ github.action_path }}/run-tests.sh"
         "${{ github.action_path }}/run-tests.sh"

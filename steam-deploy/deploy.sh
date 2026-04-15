@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ────────────────────────────────────────────────────────────────────────────
-#  🐸 FrogitudeCI — Steam Deploy Script
+#  🐸 FrogitudeCI — Steam Deploy Script  (v1)
 #
 #  Installs steamcmd, decodes config VDF for auth, generates app build VDF,
 #  and pushes builds to Steamworks.

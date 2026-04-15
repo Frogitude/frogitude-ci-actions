@@ -1,41 +1,40 @@
 # 🐸 FrogitudeCI Actions
 
-Custom GitHub Actions for game engine CI/CD pipelines. Drop-in replacements for GameCI actions — same Docker images, full control.
+Custom GitHub Actions for game engine CI/CD pipelines. Drop-in replacements for GameCI actions — same Docker images (`unityci/editor`), full control over the build process.
+
+## Versioning
+
+All actions use **semantic version tags**. Pin to a major version for stability:
+
+```yaml
+- uses: Frogitude/frogitude-ci-actions/unity-build@v1      # recommended
+- uses: Frogitude/frogitude-ci-actions/unity-build@v1.2.0   # exact pin
+- uses: Frogitude/frogitude-ci-actions/unity-build@main      # bleeding edge
+```
+
+| Tag | Meaning |
+|-----|---------|
+| `@v1` | Latest v1.x.x (stable, recommended) |
+| `@v1.2.0` | Exact release — fully reproducible |
+| `@main` | Tip of main branch — may break |
 
 ## Quick Start (Secrets Wizard Website)
 
-Use the local website to configure recipe, validate required secrets, and push workflow.
-
 ```bash
 npm install
-npm run secrets-wizard
+npm run secrets-wizard    # opens http://localhost:3001
 ```
 
-Open: `http://localhost:3001`
-
-### One-Click Setup Flow
-
-The GitHub panel now uses one primary action button:
-
-1. `One-Click Setup`
-2. `Dry-run only` toggle (enabled by default)
-
-Behavior:
-
-1. Runs validation against selected repository.
-2. If required secrets are missing, auto-switches to `Secrets` tab and focuses first missing field.
-3. In dry-run mode, stops before syncing secrets or pushing workflow.
-4. With dry-run disabled, asks confirmation, then syncs provided secret values and pushes workflow YAML.
-
-Note: legacy `Sync to GitHub`, `Push Workflow`, and `Validate All` controls are intentionally hidden in the UI.
+The **GitHub panel** provides one-click setup: validate → sync secrets → push workflow.
 
 ## Actions
 
 | Action | Purpose |
 |--------|---------|
-| [`unity-activate`](#unity-activate) | Activate Unity license (Personal .ulf or Pro serial) |
-| [`unity-test`](#unity-test) | Run Edit-mode + Play-mode tests |
+| [`unity-activate`](#unity-activate) | Activate Unity license (Personal, Pro serial, or License Server) |
+| [`unity-test`](#unity-test) | Run Edit-mode, Play-mode, or Standalone tests |
 | [`unity-build`](#unity-build) | Build for any target platform |
+| [`unity-return-license`](#unity-return-license) | Return Pro/Plus serial license seat |
 | [`steam-deploy`](#steam-deploy) | Upload builds to Steamworks |
 
 ---
@@ -43,29 +42,35 @@ Note: legacy `Sync to GitHub`, `Push Workflow`, and `Validate All` controls are 
 ## unity-activate
 
 Activates a Unity license inside Docker and stores it in a shared volume for subsequent steps.
+Supports **Personal (.ulf)**, **Pro/Plus (serial)**, and **License Server (floating)** activation.
 
 ```yaml
 - uses: Frogitude/frogitude-ci-actions/unity-activate@v1
   with:
-    unity-version: '2022.3.20f1'
-    # Personal license (.ulf file content):
+    unity-version: '6000.0.23f1'
+    # Personal license:
     license: ${{ secrets.UNITY_LICENSE }}
-    # OR Pro license (serial):
+    # OR Pro serial:
     # serial: ${{ secrets.UNITY_SERIAL }}
     # email: ${{ secrets.UNITY_EMAIL }}
     # password: ${{ secrets.UNITY_PASSWORD }}
+    # OR License Server:
+    # licensing-server: ${{ secrets.UNITY_LICENSING_SERVER }}
 ```
 
 ### Inputs
 
 | Input | Required | Default | Description |
 |-------|----------|---------|-------------|
-| `unity-version` | Yes | — | Unity Editor version |
+| `unity-version` | Yes | — | Unity Editor version (e.g. `2022.3.20f1`, `6000.0.23f1`) |
 | `license` | No | `''` | Personal .ulf file content |
 | `serial` | No | `''` | Pro/Plus serial number |
 | `email` | No | `''` | Unity account email (for serial) |
 | `password` | No | `''` | Unity account password (for serial) |
+| `licensing-server` | No | `''` | Unity License Server URL (floating license) |
 | `docker-image` | No | auto | Override Docker image |
+| `container-registry` | No | `unityci/editor` | Docker image registry |
+| `container-registry-version` | No | `3` | Docker image tag version |
 
 ### Outputs
 
@@ -77,16 +82,18 @@ Activates a Unity license inside Docker and stores it in a shared volume for sub
 
 ## unity-test
 
-Runs Unity Editor tests and outputs NUnit XML results with parsed summaries.
+Runs Unity tests and outputs NUnit XML results with parsed summaries.
+Supports **EditMode**, **PlayMode**, **Standalone**, and **all** modes.
 
 ```yaml
 - uses: Frogitude/frogitude-ci-actions/unity-test@v1
   id: tests
   with:
-    unity-version: '2022.3.20f1'
+    unity-version: '6000.0.23f1'
     license: ${{ secrets.UNITY_LICENSE }}
-    test-mode: all          # all, editmode, or playmode
-    artifacts-path: test-results
+    test-mode: all
+    coverage: true
+    coverage-options: 'generateAdditionalMetrics;generateHtmlReport;generateBadgeReport'
 
 - name: Check results
   run: echo "Passed ${{ steps.tests.outputs.passed }}/${{ steps.tests.outputs.total }}"
@@ -97,14 +104,30 @@ Runs Unity Editor tests and outputs NUnit XML results with parsed summaries.
 | Input | Required | Default | Description |
 |-------|----------|---------|-------------|
 | `unity-version` | Yes | — | Unity Editor version |
-| `test-mode` | No | `all` | `all`, `editmode`, or `playmode` |
+| `test-mode` | No | `all` | `all`, `editmode`, `playmode`, or `standalone` |
 | `project-path` | No | `.` | Path to Unity project |
 | `artifacts-path` | No | `test-results` | Output directory for XML results |
 | `coverage` | No | `false` | Enable code coverage |
+| `coverage-options` | No | see below | Coverage options string |
+| `custom-parameters` | No | `''` | Extra Unity CLI arguments |
+| `package-mode` | No | `false` | Test a Unity package instead of project |
+| `use-host-network` | No | `false` | Use host network (private registries) |
+| `check-name` | No | `''` | Custom name for GitHub check annotation |
 | `license` | No | `''` | Personal .ulf content |
 | `serial` | No | `''` | Pro serial number |
 | `email` | No | `''` | Unity account email |
 | `password` | No | `''` | Unity account password |
+| `licensing-server` | No | `''` | Unity License Server URL |
+| `docker-image` | No | auto | Override Docker image |
+| `container-registry` | No | `unityci/editor` | Docker image registry |
+| `container-registry-version` | No | `3` | Docker image tag version |
+| `docker-cpu-limit` | No | `''` | Docker CPU limit |
+| `docker-memory-limit` | No | `''` | Docker memory limit |
+| `ssh-agent` | No | `''` | SSH agent socket path |
+| `git-private-token` | No | `''` | Token for private Git dependencies |
+| `run-as-host-user` | No | `false` | Run Docker as host UID (self-hosted) |
+
+> Default `coverage-options`: `generateAdditionalMetrics;generateHtmlReport;generateBadgeReport`
 
 ### Outputs
 
@@ -115,33 +138,40 @@ Runs Unity Editor tests and outputs NUnit XML results with parsed summaries.
 | `passed` | Passed test count |
 | `failed` | Failed test count |
 | `skipped` | Skipped test count |
+| `coverage-path` | Path to coverage results (when enabled) |
 
 ---
 
 ## unity-build
 
 Builds a Unity project for any target platform. Auto-selects the correct Docker image.
+Supports **Build Profiles** (Unity 6+), **versioning**, **Android signing/export**, and **GPU rendering**.
 
 ```yaml
 - uses: Frogitude/frogitude-ci-actions/unity-build@v1
   with:
-    unity-version: '2022.3.20f1'
+    unity-version: '6000.0.23f1'
     license: ${{ secrets.UNITY_LICENSE }}
     target-platform: StandaloneWindows64
     build-name: MyGame
+    versioning: Semantic
+    version: '1.2.0'
 ```
 
 ### Platform → Docker Image
 
 | Platform | Docker Tag |
 |----------|-----------|
-| `StandaloneWindows64` | `windows-mono-3` |
-| `StandaloneOSX` | `mac-mono-3` |
-| `StandaloneLinux64` | `linux-il2cpp-3` |
-| `Android` | `android-3` |
-| `iOS` | `ios-3` |
-| `WebGL` | `webgl-3` |
-| `LinuxHeadlessSimulation` | `linux-il2cpp-3` |
+| `StandaloneWindows64` | `windows-mono` |
+| `StandaloneWindows` | `windows-mono` |
+| `StandaloneOSX` | `mac-mono` |
+| `StandaloneLinux64` | `linux-il2cpp` |
+| `Android` | `android` |
+| `iOS` | `ios` |
+| `WebGL` | `webgl` |
+| `tvOS` | `appletv` |
+| `WSAPlayer` | `universal-windows-platform` |
+| `LinuxHeadlessSimulation` | `linux-il2cpp` |
 
 ### Inputs
 
@@ -153,15 +183,33 @@ Builds a Unity project for any target platform. Auto-selects the correct Docker 
 | `build-name` | No | repo name | Output build name |
 | `build-path` | No | `build` | Output directory |
 | `build-method` | No | `''` | Custom C# build method |
+| `build-profile` | No | `''` | Unity Build Profile path (Unity 6+) |
+| `custom-parameters` | No | `''` | Extra Unity CLI arguments |
+| `versioning` | No | `''` | `Semantic`, `Tag`, `Custom`, or `None` |
+| `version` | No | `''` | Version string (for Custom versioning) |
 | `il2cpp` | No | `false` | Force IL2CPP backend |
+| `enable-gpu` | No | `false` | Enable GPU rendering in build |
+| `allow-dirty-build` | No | `false` | Allow builds with uncommitted changes |
 | `android-keystore-base64` | No | `''` | Base64 keystore for Android signing |
 | `android-keystore-pass` | No | `''` | Keystore password |
 | `android-keyalias-name` | No | `''` | Key alias name |
 | `android-keyalias-pass` | No | `''` | Key alias password |
+| `android-export-type` | No | `androidPackage` | `androidPackage` (APK), `androidAppBundle` (AAB), or `androidStudioProject` |
+| `android-target-sdk-version` | No | `''` | Android target SDK version |
+| `android-symbol-type` | No | `''` | `public`, `debugging`, or `none` |
 | `license` | No | `''` | Personal .ulf content |
 | `serial` | No | `''` | Pro serial number |
 | `email` | No | `''` | Unity account email |
 | `password` | No | `''` | Unity account password |
+| `licensing-server` | No | `''` | Unity License Server URL |
+| `docker-image` | No | auto | Override Docker image |
+| `container-registry` | No | `unityci/editor` | Docker image registry |
+| `container-registry-version` | No | `3` | Docker image tag version |
+| `docker-cpu-limit` | No | `''` | Docker CPU limit |
+| `docker-memory-limit` | No | `''` | Docker memory limit |
+| `ssh-agent` | No | `''` | SSH agent socket path |
+| `git-private-token` | No | `''` | Token for private Git dependencies |
+| `run-as-host-user` | No | `false` | Run Docker as host UID (self-hosted) |
 
 ### Outputs
 
@@ -169,6 +217,36 @@ Builds a Unity project for any target platform. Auto-selects the correct Docker 
 |--------|-------------|
 | `build-path` | Path to build output |
 | `build-size` | Total artifact size |
+| `build-version` | Resolved version string |
+| `engine-exit-code` | Unity Editor exit code |
+
+---
+
+## unity-return-license
+
+Returns a Unity Pro/Plus serial license to free the seat allocation.
+Run this as a **post-step** or in an `if: always()` job after build/test.
+
+> Personal (.ulf) and License Server licenses do **not** need returning.
+
+```yaml
+- uses: Frogitude/frogitude-ci-actions/unity-return-license@v1
+  if: always()
+  with:
+    unity-version: '6000.0.23f1'
+    license-volume: ${{ steps.activate.outputs.volume-name }}
+    serial: ${{ secrets.UNITY_SERIAL }}
+```
+
+### Inputs
+
+| Input | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `unity-version` | Yes | — | Unity Editor version |
+| `license-volume` | Yes | — | Docker volume with activated license |
+| `serial` | Yes | — | Pro/Plus serial key |
+| `container-registry` | No | `unityci/editor` | Docker image registry |
+| `container-registry-version` | No | `3` | Docker image tag version |
 
 ---
 
