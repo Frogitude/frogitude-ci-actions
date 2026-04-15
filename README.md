@@ -2,6 +2,33 @@
 
 Custom GitHub Actions for game engine CI/CD pipelines. Drop-in replacements for GameCI actions — same Docker images, full control.
 
+## Quick Start (Secrets Wizard Website)
+
+Use the local website to configure recipe, validate required secrets, and push workflow.
+
+```bash
+npm install
+npm run secrets-wizard
+```
+
+Open: `http://localhost:3001`
+
+### One-Click Setup Flow
+
+The GitHub panel now uses one primary action button:
+
+1. `One-Click Setup`
+2. `Dry-run only` toggle (enabled by default)
+
+Behavior:
+
+1. Runs validation against selected repository.
+2. If required secrets are missing, auto-switches to `Secrets` tab and focuses first missing field.
+3. In dry-run mode, stops before syncing secrets or pushing workflow.
+4. With dry-run disabled, asks confirmation, then syncs provided secret values and pushes workflow YAML.
+
+Note: legacy `Sync to GitHub`, `Push Workflow`, and `Validate All` controls are intentionally hidden in the UI.
+
 ## Actions
 
 | Action | Purpose |
